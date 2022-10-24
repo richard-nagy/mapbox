@@ -1,25 +1,36 @@
 import React, { useState } from "react";
-import ReactMapGL from "react-map-gl";
+import { Map, Marker } from "react-map-gl";
+import "./style.css";
+import "mapbox-gl/dist/mapbox-gl.css";
+import Mark from "./Components/Mark";
 
 export default function App() {
     const [viewport, setViewport] = useState({
-        width: "100vw",
-        height: "100vh",
         latitude: 47.1028,
         longitude: 17.9093,
-        zoom: 10,
-        pitch: 0,
-        bearing: 0,
+        zoom: 7,
     });
+
+    const listOfPlaces = [
+        { longitude: 17.9093, latitude: 47.1028 },
+        { longitude: 19.0402, latitude: 47.4979 },
+        { longitude: 20.3772, latitude: 47.9025 },
+    ];
 
     return (
         <div className="App">
-            <ReactMapGL
-                {...viewport}
-                mapStyle="mapbox://styles/rafilos556/ckhrp0auk0ol119s02qvctvh4"
-                mapboxApiAccessToken={process.env.REACT_APP_MAPBOX_TOKEN}
-                onViewportChange={(nextViewport) => setViewport(nextViewport)}
-            ></ReactMapGL>
+            <Map
+                initialViewState={{
+                    ...viewport,
+                }}
+                style={{ width: "100vw", height: "100vh" }}
+                mapStyle="mapbox://styles/mapbox/streets-v9"
+                mapboxAccessToken={process.env.REACT_APP_MAPBOX_TOKEN}
+            >
+                {listOfPlaces.map((place) => {
+                    return <Mark {...place} />;
+                })}
+            </Map>
         </div>
     );
 }
