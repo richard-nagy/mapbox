@@ -1,14 +1,8 @@
 import React from "react";
-import { Marker } from "react-map-gl";
-import { getDefaultLibFileName } from "typescript";
-import image from "./marker.png";
+import { StyledMarker } from "../styles/Mark";
 
 const Mark = (props) => {
-    return (
-        <Marker {...props} anchor="bottom">
-            <img src={image} />
-        </Marker>
-    );
+    return <StyledMarker {...props} />;
 };
 
 export default Mark;
