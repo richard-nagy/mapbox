@@ -9,7 +9,12 @@ const LeftBarStack = (props) => {
             justifyContent="flex-start"
             alignItems="center"
             gap={2}
-            sx={{ minWidth: "250px", padding: "20px", backgroundColor: grey[100] }}
+            sx={{
+                minWidth: "250px",
+                maxWidth: "250px",
+                padding: "20px",
+                backgroundColor: grey[100],
+            }}
         >
             {props.children}
         </Stack>

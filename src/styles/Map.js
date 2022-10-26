@@ -29,13 +29,13 @@ const MapBox = (props) => {
             width="100%"
             height="100vh"
             sx={
-                props.isWaypointOn && {
-                    boxSizing: "border-box",
-                    border: `5px solid ${indigo[900]}`,
-                    "*": {
-                        cursor: "pointer",
-                    },
-                }
+                props.isWaypointOn
+                    ? {
+                          "*": {
+                              cursor: "pointer",
+                          },
+                      }
+                    : {}
             }
         >
             {props.children}

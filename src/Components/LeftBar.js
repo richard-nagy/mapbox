@@ -8,18 +8,28 @@ const LeftBar = (props) => {
     const [listOfWaypoints, setListOfWaypoints] = useState([]);
 
     useEffect(() => {
+        if (listOfWaypoints.length === listOfPlaces.length) {
+            return;
+        }
+
         const array = [];
         let promises = [];
 
-        // TODO: Add a filter to only fetch places that are not already in the list
-        listOfPlaces.forEach((coordinate) => {
+        listOfPlaces.forEach((place) => {
+            if (listOfWaypoints.find((item) => item.id === place.id)) {
+                return;
+            }
+
             promises.push(
                 axios
                     .get(
-                        `https://api.mapbox.com/geocoding/v5/mapbox.places/${coordinate.longitude},${coordinate.latitude}.json?&access_token=pk.eyJ1IjoianNjYXN0cm8iLCJhIjoiY2s2YzB6Z25kMDVhejNrbXNpcmtjNGtpbiJ9.28ynPf1Y5Q8EyB_moOHylw`
+                        `https://api.mapbox.com/geocoding/v5/mapbox.places/${place.longitude},${place.latitude}.json?&access_token=pk.eyJ1IjoianNjYXN0cm8iLCJhIjoiY2s2YzB6Z25kMDVhejNrbXNpcmtjNGtpbiJ9.28ynPf1Y5Q8EyB_moOHylw`
                     )
                     .then((response) => {
-                        array.push(response.data.features[0].place_name);
+                        array.push({
+                            id: place.id,
+                            place: response.data.features[0].place_name,
+                        });
                     })
                     .catch((error) => {
                         console.log(error);
@@ -27,12 +37,8 @@ const LeftBar = (props) => {
             );
         });
 
-        Promise.all(promises).then(() => setListOfWaypoints(array));
-    }, [listOfPlaces]);
-
-    if (listOfWaypoints.length !== listOfPlaces.length) {
-        return "Loading...";
-    }
+        Promise.all(promises).then(() => setListOfWaypoints((old) => [...old, ...array]));
+    }, [listOfPlaces, listOfWaypoints]);
 
     return (
         <LeftBarStack>
@@ -45,16 +51,20 @@ const LeftBar = (props) => {
                 />
             </PaperContainer>
             <PaperContainer>
-                <List>
-                    {listOfWaypoints.map((e) => {
-                        return (
-                            <ListItem>
-                                <ListItemText primary={e} />
-                                <Divider />
-                            </ListItem>
-                        );
-                    })}
-                </List>
+                {!listOfWaypoints ? (
+                    "Loading..."
+                ) : (
+                    <List>
+                        {listOfWaypoints.map((e) => {
+                            return (
+                                <ListItem key={e.id}>
+                                    <ListItemText primary={e.place} />
+                                    <Divider />
+                                </ListItem>
+                            );
+                        })}
+                    </List>
+                )}
             </PaperContainer>
         </LeftBarStack>
     );

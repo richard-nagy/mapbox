@@ -15,8 +15,6 @@ const MapComponent = (props) => {
     };
 
     const handleClick = (map) => {
-        console.log(map);
-
         if (!isWaypointOn) {
             return;
         }
@@ -42,7 +40,6 @@ const MapComponent = (props) => {
                     return <Mark key={place.id} {...place} />;
                 })}
             </Map>
-            {/* {isWaypointOn && <MapInformation>Selecting new waypoints</MapInformation>} */}
         </MapBox>
     );
 };
