@@ -4,8 +4,6 @@ import { Box } from "@mui/system";
 const MapBox = (props) => {
     return (
         <Box
-            width="100%"
-            height="100vh"
             sx={
                 props.isMarkerOn
                     ? {

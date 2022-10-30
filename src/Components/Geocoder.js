@@ -8,8 +8,8 @@ const Geocoder = ({ addMarker }) => {
     const ctrl = new MapBoxGeocoder({
         accessToken: TOKEN,
         marker: false,
-        collapsed: true,
-        clearOnBlur: true,
+        // collapsed: true,
+        // clearOnBlur: true,
     });
     useControl(() => ctrl);
     ctrl.on("result", (element) => {
