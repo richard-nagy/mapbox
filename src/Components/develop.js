@@ -16,10 +16,11 @@ export default function App() {
     const [lng, setLng] = useState(-70.9);
     const [lat, setLat] = useState(42.35);
     const [zoom, setZoom] = useState(9);
-    const [listOfPlaces, setListOfPlaces] = useState([]);
-    const pointHopper = useRef({});
+    const [, forceRender] = useState(false);
     const dropoffs = turf.featureCollection([]);
     const nothing = turf.featureCollection([]);
+    const pointHopper = useRef({});
+    const listOfPlaces = useRef([]);
 
     useEffect(() => {
         if (map.current) return; // initialize map only once
@@ -48,11 +49,6 @@ export default function App() {
                 source: {
                     data: dropoffs,
                     type: "geojson",
-                },
-                layout: {
-                    "icon-allow-overlap": true,
-                    "icon-ignore-placement": true,
-                    "icon-image": "zoo-11",
                 },
             });
 
@@ -99,11 +95,11 @@ export default function App() {
             // wait until the map has finished flying to the searched point
             map.current.once("moveend", function () {
                 // add the result as a point in the 'search_point' layer to show up as marker
-                var geocoder_result = event.result.geometry;
+                let geocoder_result = event.result.geometry;
                 map.current.getSource("route").setData(geocoder_result);
 
                 //project to use (pixel xy coordinates instead of lat/lon for WebGL)
-                var geocoder_point = map.current.project([
+                let geocoder_point = map.current.project([
                     event.result.center[0],
                     event.result.center[1],
                 ]);
@@ -121,9 +117,6 @@ export default function App() {
     }
 
     async function newDropoff(coordinates) {
-        // Store the clicked point as a new GeoJSON feature with
-        // two properties: `orderTime` and `key`
-
         addPlaceToList(coordinates.lng, coordinates.lat);
 
         const pt = turf.point([coordinates.lng, coordinates.lat], {
@@ -145,14 +138,20 @@ export default function App() {
     }
 
     // Here you'll specify all the parameters necessary for requesting a response from the Optimization API
-    function assembleQueryURL() {
-        const coordinates = [];
+    function assembleQueryURL(updatatingRoute = []) {
+        let coordinates = [];
 
-        // Create an array of GeoJSON feature collections for each point
-        const restJobs = Object.keys(pointHopper.current).map((key) => pointHopper.current[key]);
+        if (updatatingRoute.length === 0) {
+            // Create an array of GeoJSON feature collections for each point
+            const restJobs = Object.keys(pointHopper.current).map(
+                (key) => pointHopper.current[key]
+            );
 
-        for (const job of restJobs) {
-            coordinates.push(job.geometry.coordinates);
+            for (const job of restJobs) {
+                coordinates.push(job.geometry.coordinates);
+            }
+        } else {
+            coordinates = updatatingRoute;
         }
 
         return `https://api.mapbox.com/directions/v5/mapbox/driving/${coordinates.join(
@@ -163,14 +162,61 @@ export default function App() {
     const addPlaceToList = (lng, lat) => {
         function getPlaceName(response) {
             const name = response.data.features[0].place_name;
-            setListOfPlaces((old) => [
-                ...old,
-                { id: id++, longitude: lng, latitude: lat, name: name },
-            ]);
+            const id_ = id++;
+            listOfPlaces.current.push({ id: id_, longitude: lng, latitude: lat, name: name });
+
+            const marker = new mapboxgl.Marker({
+                draggable: true,
+            })
+                .setLngLat([lng, lat])
+                .addTo(map.current);
+
+            function onDragEnd() {
+                updateListOfPlaces(marker.getLngLat().lng, marker.getLngLat().lat, id_);
+            }
+
+            marker.on("dragend", onDragEnd);
         }
 
         getLocation(lng, lat, getPlaceName);
     };
+
+    function updateListOfPlaces(lng, lat, id) {
+        async function getPlaceName(response_) {
+            const name = response_.data.features[0].place_name;
+
+            let foundIndex = listOfPlaces.current.findIndex((x) => x.id == id);
+            listOfPlaces.current[foundIndex] = {
+                id: id,
+                longitude: lng,
+                latitude: lat,
+                name: name,
+            };
+
+            const stuff = listOfPlaces.current.map((e) => [e.longitude, e.latitude]);
+
+            const pt = turf.point([lng, lat], {
+                key: Math.random(),
+            });
+            dropoffs.features.push(pt);
+            pointHopper.current[pt.properties.key] = pt;
+
+            // Make a request to the Optimization API
+
+            const query = await fetch(assembleQueryURL(stuff), { method: "GET" });
+            const response = await query.json();
+
+            if (Object.keys(pointHopper.current).length > 1) {
+                const routeGeoJSON = turf.featureCollection([
+                    turf.feature(response.routes[0].geometry),
+                ]);
+                map.current.getSource("route").setData(routeGeoJSON);
+            }
+        }
+
+        getLocation(lng, lat, getPlaceName);
+        forceRender((old) => !old);
+    }
 
     return (
         <div>
@@ -179,7 +225,7 @@ export default function App() {
             </div>
             <div ref={mapContainer} className="map-container"></div>
             <ul>
-                {listOfPlaces.map((place) => {
+                {listOfPlaces.current.map((place) => {
                     return <li key={place.id}>{place.name}</li>;
                 })}
             </ul>
