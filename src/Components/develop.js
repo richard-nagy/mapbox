@@ -9,6 +9,8 @@ import MapboxGeocoder from "@mapbox/mapbox-gl-geocoder";
 import { getLocation } from "../apis/Location";
 import "mapbox-gl/dist/mapbox-gl.css";
 import "@mapbox/mapbox-gl-geocoder/dist/mapbox-gl-geocoder.css";
+import { Divider, FormControlLabel, List, ListItem, ListItemText, Typography } from "@mui/material";
+import ControlPanel from "./ControlPanel";
 
 mapboxgl.accessToken = process.env.REACT_APP_MAPBOX_TOKEN;
 let id = 0;
@@ -17,14 +19,28 @@ let key1 = 0;
 export default function App() {
     const mapContainer = useRef(null);
     const map = useRef(null);
-    const [lng, setLng] = useState(-70.9);
-    const [lat, setLat] = useState(42.35);
-    const [zoom, setZoom] = useState(9);
+
     const [, forceRender] = useState(false);
+    const [profile, setProfile] = useState("driving");
+    const [distance, setDistance] = useState(0);
     const dropoffs = turf.featureCollection([]);
     const pointHopper = useRef({});
     const listOfPlaces = useRef([]);
     const listOfMarkers = useRef([]);
+
+    useEffect(async () => {
+        const stuff = listOfPlaces.current.map((e) => [e.longitude, e.latitude]);
+
+        const query = await fetch(assembleQueryURL(stuff), { method: "GET" });
+        const response = await query.json();
+
+        if (Object.keys(pointHopper.current).length > 1) {
+            const routeGeoJSON = turf.featureCollection([
+                turf.feature(response.routes[0].geometry),
+            ]);
+            map.current.getSource("route").setData(routeGeoJSON);
+        }
+    }, [profile]);
 
     useEffect(() => {
         if (map.current) return; // initialize map only once
@@ -32,18 +48,11 @@ export default function App() {
             container: mapContainer.current,
             style: "mapbox://styles/mapbox/streets-v11",
             center: [19.1315, 47.4825],
-            zoom: zoom,
+            zoom: 10,
         });
     });
 
     useEffect(() => {
-        if (!map.current) return; // wait for map to initialize
-        map.current.on("move", () => {
-            setLng(map.current.getCenter().lng.toFixed(4));
-            setLat(map.current.getCenter().lat.toFixed(4));
-            setZoom(map.current.getZoom().toFixed(2));
-        });
-
         if (!map.current) return; // wait for map to initialize
 
         map.current.on("load", () => {
@@ -168,7 +177,7 @@ export default function App() {
             coordinates = updatatingRoute;
         }
 
-        return `https://api.mapbox.com/directions/v5/mapbox/driving/${coordinates.join(
+        return `https://api.mapbox.com/directions/v5/mapbox/${profile}/${coordinates.join(
             ";"
         )}?geometries=geojson&steps=true&&access_token=${mapboxgl.accessToken}`;
     }
@@ -186,6 +195,7 @@ export default function App() {
                 name: name,
                 key: key,
             });
+            forceRender((old) => !old);
 
             const marker = new mapboxgl.Marker({
                 draggable: true,
@@ -226,6 +236,7 @@ export default function App() {
                 const routeGeoJSON = turf.featureCollection([
                     turf.feature(response.routes[0].geometry),
                 ]);
+
                 map.current.getSource("route").setData(routeGeoJSON);
             }
         }
@@ -245,6 +256,7 @@ export default function App() {
                 name: name,
                 key: key,
             };
+            forceRender((old) => !old);
 
             const stuff = listOfPlaces.current.map((e) => [e.longitude, e.latitude]);
 
@@ -267,7 +279,6 @@ export default function App() {
         }
 
         getLocation(lng, lat, getPlaceName);
-        forceRender((old) => !old);
     }
 
     const deleteLocation = async (i, place) => {
@@ -275,10 +286,7 @@ export default function App() {
         listOfMarkers.current[i].remove();
         listOfMarkers.current = listOfMarkers.current.filter((_, index) => index !== i);
 
-        console.log(pointHopper.current);
         delete pointHopper.current[place.key];
-        console.log(place.key);
-        console.log(pointHopper.current);
 
         if (listOfPlaces.current.length === 0) {
             const geojson = {
@@ -310,46 +318,75 @@ export default function App() {
         const query = await fetch(assembleQueryURL(stuff), { method: "GET" });
         const response = await query.json();
 
-        console.log(response.routes[0].geometry);
-
         if (Object.keys(pointHopper.current).length > 1) {
             const routeGeoJSON = turf.featureCollection([
                 turf.feature(response.routes[0].geometry),
             ]);
 
             map.current.getSource("route").setData(routeGeoJSON);
+            forceRender((old) => !old);
         }
     };
 
-    const moveUp = () => {
-        console.log("up");
-    };
+    const moveLocation = async (up, index) => {
+        if (up) {
+            const placeHolder = listOfPlaces.current[index - 1];
+            listOfPlaces.current[index - 1] = listOfPlaces.current[index];
+            listOfPlaces.current[index] = placeHolder;
+            forceRender((old) => !old);
+        }
 
-    const moveDown = () => {
-        console.log("down");
+        const placeHolder = listOfPlaces.current[index + 1];
+        listOfPlaces.current[index + 1] = listOfPlaces.current[index];
+        listOfPlaces.current[index] = placeHolder;
+        forceRender((old) => !old);
+
+        const stuff = listOfPlaces.current.map((e) => [e.longitude, e.latitude]);
+
+        // Make a request to the Optimization API
+        const query = await fetch(assembleQueryURL(stuff), { method: "GET" });
+        const response = await query.json();
+
+        if (Object.keys(pointHopper.current).length > 1) {
+            const routeGeoJSON = turf.featureCollection([
+                turf.feature(response.routes[0].geometry),
+            ]);
+            map.current.getSource("route").setData(routeGeoJSON);
+        }
     };
 
     return (
         <div>
-            <div className="sidebar">
-                Longitude: {lng} | Latitude: {lat} | Zoom: {zoom}
-            </div>
             <div ref={mapContainer} className="map-container"></div>
-            <ul>
-                {listOfPlaces.current.map((place, i) => {
-                    return (
-                        <li key={place.id}>
-                            {place.name}
-                            <button onClick={() => deleteLocation(i, place)}>delete</button>
-                            {i !== 0 && <button onClick={() => moveUp(i)}>up</button>}
-                            {listOfPlaces.current.length - 1 !== i && (
-                                <button onClick={() => moveDown(i)}>down</button>
-                            )}
-                        </li>
-                    );
-                })}
-            </ul>
-            <button onClick={() => console.log(pointHopper.current)}>log</button>
+            <ControlPanel top={10}>
+                <button onClick={() => setProfile("driving")}>driving</button>
+                <button onClick={() => setProfile("walking")}>walking</button>
+                <button onClick={() => setProfile("cycling")}>cycling</button>
+                distance: {distance}
+            </ControlPanel>
+            <ControlPanel top={70}>
+                <Typography variant="h6">List of places</Typography>
+                <List sx={{ padding: 0 }}>
+                    {listOfPlaces.current.map((place, i) => {
+                        return (
+                            <div key={place.id}>
+                                <Divider />
+                                <ListItem sx={{ padding: 0 }}>
+                                    <ListItemText primary={place.name} />
+                                    <button onClick={() => deleteLocation(i, place)}>delete</button>
+                                    {i !== 0 && (
+                                        <button onClick={() => moveLocation(true, i)}>up</button>
+                                    )}
+                                    {listOfPlaces.current.length - 1 !== i && (
+                                        <button onClick={() => moveLocation(false, i)}>down</button>
+                                    )}
+                                </ListItem>
+                            </div>
+                        );
+                    })}
+                </List>
+            </ControlPanel>
+            {/* <button onClick={() => console.log(listOfPlaces.current)}>log</button> */}
         </div>
     );
 }
