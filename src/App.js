@@ -1,177 +1,227 @@
-import React, { useState } from "react";
-import "mapbox-gl/dist/mapbox-gl.css";
-import {
-    Divider,
-    FormControlLabel,
-    List,
-    ListItem,
-    ListItemText,
-    Paper,
-    Switch,
-    Typography,
-} from "@mui/material";
-import Mark from "./components/Mark";
-import { GeolocateControl, Map, NavigationControl, useControl } from "react-map-gl";
-import { MapBox } from "./styles/Map";
-import Geocoder from "./components/Geocoder";
-import ControlPanel from "./components/ControlPanel";
+import React, { useRef, useEffect, useState } from "react";
+import mapboxgl from "!mapbox-gl"; // eslint-disable-line import/no-webpack-loader-syntax
+import * as turf from "@turf/turf";
+import MapboxGeocoder from "@mapbox/mapbox-gl-geocoder";
 import { getLocation } from "./apis/Location";
-import { DeckGL, GeoJsonLayer, ScatterplotLayer } from "deck.gl";
-import { LineLayer } from "@deck.gl/layers";
-import axios from "axios";
-import geci from "./geci.json";
-import { MapContext } from "react-map-gl/dist/esm/components/map";
-import { MapboxOverlay, MapboxOverlayProps } from "@deck.gl/mapbox/typed";
+import Profiles from "./components/Profiles";
+import { ListOfPlaces } from "./components/ListOfPlaces";
+import DrawRoutes from "./apis/DrawRoutes";
+import "mapbox-gl/dist/mapbox-gl.css";
+import "@mapbox/mapbox-gl-geocoder/dist/mapbox-gl-geocoder.css";
 
-const TOKEN = process.env.REACT_APP_MAPBOX_TOKEN;
-
-const data = [{ sourcePosition: [-122.41669, 37.7853], targetPosition: [-122.41669, 37.781] }];
-
-let id = 0;
+mapboxgl.accessToken = process.env.REACT_APP_MAPBOX_TOKEN;
+let globalID = 0;
 
 export default function App() {
-    const [isMarkerOn, setsetIsMarkerOn] = useState(false);
-    const [listOfPlaces, setListOfPlaces] = useState([]);
+    const [, forceRender] = useState(false);
+    const [profile, setProfile] = useState("driving");
+    const mapContainer = useRef(null);
+    const map = useRef(null);
+    const pointHopper = useRef({});
+    const listOfPlaces = useRef([]);
+    const dropoffs = turf.featureCollection([]);
 
-    const layers = [new LineLayer({ id: "line-layer", data })];
+    // Initialize the map
+    useEffect(() => {
+        if (map.current) return; // initialize map only once
+        map.current = new mapboxgl.Map({
+            container: mapContainer.current,
+            style: "mapbox://styles/mapbox/streets-v11",
+            center: [19.1315, 47.4825],
+            zoom: 10,
+        });
+    });
 
-    const toggleSpecialCursor = () => {
-        setsetIsMarkerOn(!isMarkerOn);
+    // Initialize the route drawings
+    useEffect(() => {
+        if (!map.current) return; // wait for map to initialize
+
+        map.current.on("load", () => {
+            map.current.addLayer({
+                id: "dropoffs-symbol",
+                type: "symbol",
+                source: {
+                    data: dropoffs,
+                    type: "geojson",
+                },
+            });
+
+            map.current.on("click", (event) => {
+                addNewPlace(event.point);
+            });
+
+            map.current.addSource("route", {
+                type: "geojson",
+                data: turf.featureCollection([]),
+            });
+
+            map.current.addLayer(
+                {
+                    id: "routeline-active",
+                    type: "line",
+                    source: "route",
+                    layout: {
+                        "line-join": "round",
+                        "line-cap": "round",
+                        visibility: "visible",
+                    },
+                    paint: {
+                        "line-color": "#3887be",
+                        "line-width": ["interpolate", ["linear"], ["zoom"], 12, 3, 22, 12],
+                    },
+                },
+                "waterway-label"
+            );
+        });
+    }, []);
+
+    // Initialize the geocoder (Search bar)
+    useEffect(() => {
+        if (!map.current) return; // wait for map to initialize
+        const geocoder = new MapboxGeocoder({
+            accessToken: mapboxgl.accessToken,
+            mapboxgl: mapboxgl,
+            marker: false,
+        });
+
+        map.current.addControl(geocoder);
+
+        // When we choose a result
+        geocoder.on("result", function (event) {
+            // After it arrived to the destination
+            // Send the coordinates to the addNewPlace function
+            // So it can add the location to the list
+            map.current.once("moveend", () => {
+                map.current.getSource("route").setData(event.result.geometry);
+                const geocoder_point = map.current.project([
+                    event.result.center[0],
+                    event.result.center[1],
+                ]);
+
+                addNewPlace(geocoder_point);
+            });
+        });
+    }, []);
+
+    // Fetch route
+    const fetchRoutes = (profile_ = profile) => {
+        DrawRoutes(listOfPlaces, profile_, pointHopper, map, forceRender);
     };
 
-    const addPlaceToList = (lng, lat) => {
-        function getPlaceName(response) {
-            const name = response.data.features[0].place_name;
-            setListOfPlaces((old) => [
-                ...old,
-                { id: id++, longitude: lng, latitude: lat, name: name },
-            ]);
-        }
+    // Add new place to the list
+    // By clicking on the map, or choosing in the search
+    function addNewPlace(point) {
+        const lng = map.current.unproject(point).lng;
+        const lat = map.current.unproject(point).lat;
 
-        getLocation(lng, lat, getPlaceName);
-    };
+        getLocation(lng, lat, (response_) => {
+            const name = response_.data.features[0].place_name;
+            const id = globalID++;
+            const marker = new mapboxgl.Marker({
+                draggable: true,
+            })
+                .setLngLat([lng, lat])
+                .addTo(map.current);
 
-    const handleClick = (map) => {
-        if (!isMarkerOn) {
-            return;
-        }
+            listOfPlaces.current.push({
+                id: id,
+                longitude: lng,
+                latitude: lat,
+                name: name,
+                marker: marker,
+            });
+            forceRender((old) => !old);
 
-        addPlaceToList(map.lngLat.lng, map.lngLat.lat);
-    };
+            marker.on("dragend", () => {
+                const lng = marker.getLngLat().lng;
+                const lat = marker.getLngLat().lat;
 
-    const updateListOfPlaces = (event, id) => {
-        const lng = event.lngLat.lng;
-        const lat = event.lngLat.lat;
+                getLocation(lng, lat, async (response_) => {
+                    const name = response_.data.features[0].place_name;
 
-        function getPlaceName(response) {
-            const name = response.data.features[0].place_name;
-            const newState = listOfPlaces.map((obj) => {
-                if (obj.id === id) {
-                    return {
-                        id: id,
+                    let foundIndex = listOfPlaces.current.findIndex((x) => x.id === id);
+                    listOfPlaces.current[foundIndex] = {
+                        ...listOfPlaces.current[foundIndex],
                         longitude: lng,
                         latitude: lat,
                         name: name,
                     };
-                }
+                    forceRender((old) => !old);
 
-                return obj;
+                    const pt = turf.point([lng, lat], {
+                        id: id,
+                    });
+                    dropoffs.features.push(pt);
+                    pointHopper.current[pt.properties.id] = pt;
+
+                    fetchRoutes();
+                });
             });
-            setListOfPlaces(newState);
+
+            let foundIndex = listOfPlaces.current.findIndex((x) => x.id === globalID);
+            listOfPlaces.current[foundIndex] = {
+                ...listOfPlaces.current[foundIndex],
+                longitude: lng,
+                latitude: lat,
+                name: name,
+            };
+
+            const pt = turf.point([lng, lat], {
+                id: id,
+            });
+            dropoffs.features.push(pt);
+            pointHopper.current[pt.properties.id] = pt;
+
+            fetchRoutes();
+        });
+
+        map.current.getSource("dropoffs-symbol").setData(dropoffs);
+
+        // If there is more than 1 locations, show the route drawings
+        if (listOfPlaces.current.length) {
+            map.current.setLayoutProperty("routeline-active", "visibility", "visible");
         }
-
-        getLocation(lng, lat, getPlaceName);
-    };
-
-    // Draw the Map Matching route as a new layer on the map
-    function addRoute(coords) {
-        return {
-            id: "route",
-            type: "line",
-            source: {
-                type: "geojson",
-                data: {
-                    type: "Feature",
-                    properties: {},
-                    geometry: coords,
-                },
-            },
-            layout: {
-                "line-join": "round",
-                "line-cap": "round",
-            },
-            paint: {
-                "line-color": "#03AA46",
-                "line-width": 8,
-                "line-opacity": 0.8,
-            },
-        };
     }
 
-    const test = () => {
-        axios
-            .get(
-                `https://api.mapbox.com/directions/v5/mapbox/cycling/-84.518641,39.134270;-84.512023,39.102779?geometries=geojson&access_token=${TOKEN}`
-            )
-            .then((response) => {
-                console.log(response.data.routes[0].geometry.coordinates);
-                return response.data.routes[0].geometry.coordinates;
-            });
+    // Delete location from list
+    const deleteLocation = async (i, place) => {
+        // Delete values from lists
+        listOfPlaces.current[i].marker.remove();
+        listOfPlaces.current = listOfPlaces.current.filter((_, index) => index !== i);
+        delete pointHopper.current[place.id];
+
+        // If there is only one location, hide the route
+        if (listOfPlaces.current.length === 1 || listOfPlaces.current.length === 0) {
+            map.current.setLayoutProperty("routeline-active", "visibility", "none");
+        }
+
+        fetchRoutes();
     };
 
-    const layerRoute = new GeoJsonLayer({
-        id: "geojson-layer",
-        data: test(),
-        filled: true,
-        stroked: false,
-        extruded: true,
-        pickable: true,
-        lineJointRounded: true,
-        getRadius: 50,
-        getElevation: 30,
-        lineWidthScale: 20,
-    });
+    // Change order of locations
+    const changeLocationOrder = async (movingUp, index) => {
+        if (movingUp) {
+            const placeHolder = listOfPlaces.current[index - 1];
+            listOfPlaces.current[index - 1] = listOfPlaces.current[index];
+            listOfPlaces.current[index] = placeHolder;
+        } else {
+            const placeHolder = listOfPlaces.current[index + 1];
+            listOfPlaces.current[index + 1] = listOfPlaces.current[index];
+            listOfPlaces.current[index] = placeHolder;
+        }
+
+        fetchRoutes();
+    };
 
     return (
-        <MapBox isMarkerOn={isMarkerOn}>
-            {/* <DeckGL
-                style={{ width: "500px", height: "500px", marginTop: "250px", zIndex: "2" }}
-                initialViewState={{
-                    longitude: -117.17282,
-                    latitude: 32.71204,
-                    zoom: 13,
-                }}
-                controller={true}
-                layers={[layerRoute]}
-            >
-                <Map mapboxAccessToken={TOKEN} mapStyle="mapbox://styles/mapbox/streets-v9">
-         
-                    <Geocoder addMarker={addPlaceToList} />
-                </Map>
-            </DeckGL> */}
-            {/* <ControlPanel top={0}>
-                    <FormControlLabel
-                        control={<Switch color="primary" />}
-                        label="📌 Place marker on click"
-                        labelPlacement="end"
-                        onChange={toggleSpecialCursor}
-                    />
-                </ControlPanel>
-                <ControlPanel top={70}>
-                    <Typography variant="h6">List of places</Typography>
-                    <List sx={{ padding: 0 }}>
-                        {listOfPlaces.map((place) => {
-                            return (
-                                <div key={place.id}>
-                                    <Divider sx={{ color: "red" }} />
-                                    <ListItem sx={{ padding: 0 }}>
-                                        <ListItemText primary={place.name} />
-                                    </ListItem>
-                                </div>
-                            );
-                        })}
-                    </List>
-                </ControlPanel> */}
-        </MapBox>
+        <div>
+            <div ref={mapContainer} className="map-container"></div>
+            <Profiles profile={profile} setProfile={setProfile} fetchRoutes={fetchRoutes} />
+            <ListOfPlaces
+                listOfPlaces={listOfPlaces}
+                changeLocationOrder={changeLocationOrder}
+                deleteLocation={deleteLocation}
+            />
+        </div>
     );
 }
