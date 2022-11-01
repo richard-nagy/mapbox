@@ -10,6 +10,7 @@ const getLocation = (lng, lat, getPlaceName) => {
         })
         .catch((error) => {
             console.log(error);
+            alert("An error occured. Please refresh the page.");
         });
 };
 

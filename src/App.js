@@ -8,22 +8,25 @@ import { ListOfPlaces } from "./components/ListOfPlaces";
 import DrawRoutes from "./apis/DrawRoutes";
 import "mapbox-gl/dist/mapbox-gl.css";
 import "@mapbox/mapbox-gl-geocoder/dist/mapbox-gl-geocoder.css";
+import "./App.css";
 
 mapboxgl.accessToken = process.env.REACT_APP_MAPBOX_TOKEN;
 let globalID = 0;
 
-export default function App() {
-    const [, forceRender] = useState(false);
+const App = () => {
     const [profile, setProfile] = useState("driving");
+    const [timeDistance, setTimeDistance] = useState({ time: 0, distance: 0 });
     const mapContainer = useRef(null);
     const map = useRef(null);
     const pointHopper = useRef({});
     const listOfPlaces = useRef([]);
-    const dropoffs = turf.featureCollection([]);
 
     // Initialize the map
     useEffect(() => {
-        if (map.current) return; // initialize map only once
+        // initialize map only once
+        if (map.current) {
+            return;
+        }
         map.current = new mapboxgl.Map({
             container: mapContainer.current,
             style: "mapbox://styles/mapbox/streets-v11",
@@ -34,14 +37,17 @@ export default function App() {
 
     // Initialize the route drawings
     useEffect(() => {
-        if (!map.current) return; // wait for map to initialize
+        // wait for map to initialize
+        if (!map.current) {
+            return;
+        }
 
         map.current.on("load", () => {
             map.current.addLayer({
                 id: "dropoffs-symbol",
                 type: "symbol",
                 source: {
-                    data: dropoffs,
+                    data: turf.featureCollection([]),
                     type: "geojson",
                 },
             });
@@ -77,7 +83,10 @@ export default function App() {
 
     // Initialize the geocoder (Search bar)
     useEffect(() => {
-        if (!map.current) return; // wait for map to initialize
+        // wait for map to initialize
+        if (!map.current) {
+            return;
+        }
         const geocoder = new MapboxGeocoder({
             accessToken: mapboxgl.accessToken,
             mapboxgl: mapboxgl,
@@ -87,7 +96,7 @@ export default function App() {
         map.current.addControl(geocoder);
 
         // When we choose a result
-        geocoder.on("result", function (event) {
+        geocoder.on("result", (event) => {
             // After it arrived to the destination
             // Send the coordinates to the addNewPlace function
             // So it can add the location to the list
@@ -105,12 +114,12 @@ export default function App() {
 
     // Fetch route
     const fetchRoutes = (profile_ = profile) => {
-        DrawRoutes(listOfPlaces, profile_, pointHopper, map, forceRender);
+        DrawRoutes(listOfPlaces, profile_, pointHopper, map, setTimeDistance);
     };
 
     // Add new place to the list
     // By clicking on the map, or choosing in the search
-    function addNewPlace(point) {
+    const addNewPlace = (point) => {
         const lng = map.current.unproject(point).lng;
         const lat = map.current.unproject(point).lat;
 
@@ -130,7 +139,6 @@ export default function App() {
                 name: name,
                 marker: marker,
             });
-            forceRender((old) => !old);
 
             marker.on("dragend", () => {
                 const lng = marker.getLngLat().lng;
@@ -146,12 +154,10 @@ export default function App() {
                         latitude: lat,
                         name: name,
                     };
-                    forceRender((old) => !old);
 
                     const pt = turf.point([lng, lat], {
                         id: id,
                     });
-                    dropoffs.features.push(pt);
                     pointHopper.current[pt.properties.id] = pt;
 
                     fetchRoutes();
@@ -169,19 +175,16 @@ export default function App() {
             const pt = turf.point([lng, lat], {
                 id: id,
             });
-            dropoffs.features.push(pt);
             pointHopper.current[pt.properties.id] = pt;
 
             fetchRoutes();
         });
 
-        map.current.getSource("dropoffs-symbol").setData(dropoffs);
-
         // If there is more than 1 locations, show the route drawings
         if (listOfPlaces.current.length) {
             map.current.setLayoutProperty("routeline-active", "visibility", "visible");
         }
-    }
+    };
 
     // Delete location from list
     const deleteLocation = async (i, place) => {
@@ -214,14 +217,21 @@ export default function App() {
     };
 
     return (
-        <div>
-            <div ref={mapContainer} className="map-container"></div>
-            <Profiles profile={profile} setProfile={setProfile} fetchRoutes={fetchRoutes} />
+        <>
+            <div ref={mapContainer} className="map-container" />
+            <Profiles
+                profile={profile}
+                setProfile={setProfile}
+                fetchRoutes={fetchRoutes}
+                timeDistance={timeDistance}
+            />
             <ListOfPlaces
                 listOfPlaces={listOfPlaces}
                 changeLocationOrder={changeLocationOrder}
                 deleteLocation={deleteLocation}
             />
-        </div>
+        </>
     );
-}
+};
+
+export default App;

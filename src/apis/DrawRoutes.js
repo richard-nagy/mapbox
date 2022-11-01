@@ -2,7 +2,7 @@ import * as turf from "@turf/turf";
 import mapboxgl from "!mapbox-gl"; // eslint-disable-line import/no-webpack-loader-syntax
 import axios from "axios";
 
-const DrawRoutes = async (listOfPlaces, profile, pointHopper, map, forceRender) => {
+const DrawRoutes = async (listOfPlaces, profile, pointHopper, map, setTimeDistance) => {
     if (Object.keys(pointHopper.current).length > 1) {
         const coordinates = listOfPlaces.current.map((e) => [e.longitude, e.latitude]);
 
@@ -13,17 +13,25 @@ const DrawRoutes = async (listOfPlaces, profile, pointHopper, map, forceRender) 
                 )}?geometries=geojson&steps=true&&access_token=${mapboxgl.accessToken}`
             )
             .then((response) => {
+                setTimeDistance({
+                    time: response.data.routes[0].duration,
+                    distance: response.data.routes[0].distance,
+                });
                 const routeGeoJSON = turf.featureCollection([
                     turf.feature(response.data.routes[0].geometry),
                 ]);
                 map.current.getSource("route").setData(routeGeoJSON);
             })
             .catch((error) => {
-                console.log("Error");
+                console.log(error);
+                alert("An error occured. Please refresh the page.");
             });
+    } else {
+        setTimeDistance({
+            time: 0,
+            distance: 0,
+        });
     }
-
-    forceRender((old) => !old);
 };
 
 export default DrawRoutes;
