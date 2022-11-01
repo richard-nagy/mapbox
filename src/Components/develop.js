@@ -1,3 +1,6 @@
+// pointHopper.current okozza problémát
+// syncelni kell list of placessel
+
 import React, { useRef, useEffect, useState } from "react";
 import mapboxgl from "!mapbox-gl"; // eslint-disable-line import/no-webpack-loader-syntax
 import "@mapbox/mapbox-gl-directions/dist/mapbox-gl-directions.css";
@@ -9,6 +12,7 @@ import "@mapbox/mapbox-gl-geocoder/dist/mapbox-gl-geocoder.css";
 
 mapboxgl.accessToken = process.env.REACT_APP_MAPBOX_TOKEN;
 let id = 0;
+let key1 = 0;
 
 export default function App() {
     const mapContainer = useRef(null);
@@ -18,9 +22,9 @@ export default function App() {
     const [zoom, setZoom] = useState(9);
     const [, forceRender] = useState(false);
     const dropoffs = turf.featureCollection([]);
-    const nothing = turf.featureCollection([]);
     const pointHopper = useRef({});
     const listOfPlaces = useRef([]);
+    const listOfMarkers = useRef([]);
 
     useEffect(() => {
         if (map.current) return; // initialize map only once
@@ -58,7 +62,7 @@ export default function App() {
 
             map.current.addSource("route", {
                 type: "geojson",
-                data: nothing,
+                data: turf.featureCollection([]),
             });
 
             map.current.addLayer(
@@ -69,6 +73,7 @@ export default function App() {
                     layout: {
                         "line-join": "round",
                         "line-cap": "round",
+                        visibility: "visible",
                     },
                     paint: {
                         "line-color": "#3887be",
@@ -78,9 +83,10 @@ export default function App() {
                 "waterway-label"
             );
         });
-    });
+    }, []);
 
     useEffect(() => {
+        if (!map.current) return; // wait for map to initialize
         const geocoder = new MapboxGeocoder({
             // Initialize the geocoder
             accessToken: mapboxgl.accessToken, // Set the access token
@@ -114,27 +120,35 @@ export default function App() {
         // and update the `dropoffs-symbol` layer
         await newDropoff(map.current.unproject(point));
         map.current.getSource("dropoffs-symbol").setData(dropoffs);
+        if (listOfPlaces.current.length) {
+            map.current.setLayoutProperty("routeline-active", "visibility", "visible");
+        }
     }
 
     async function newDropoff(coordinates) {
+        // const key = `key0-${key0++}`;
+
+        // addPlaceToList(coordinates.lng, coordinates.lat, key);
         addPlaceToList(coordinates.lng, coordinates.lat);
 
-        const pt = turf.point([coordinates.lng, coordinates.lat], {
-            key: Math.random(),
-        });
-        dropoffs.features.push(pt);
-        pointHopper.current[pt.properties.key] = pt;
+        // const pt = turf.point([coordinates.lng, coordinates.lat], {
+        //     // key: Math.random(),
+        //     key: `key0-${key0++}`,
+        // });
+        // dropoffs.features.push(pt);
+        // const key = pt.properties.key;
+        // pointHopper.current[key] = pt;
 
-        // Make a request to the Optimization API
-        const query = await fetch(assembleQueryURL(), { method: "GET" });
-        const response = await query.json();
+        // // Make a request to the Optimization API
+        // const query = await fetch(assembleQueryURL(), { method: "GET" });
+        // const response = await query.json();
 
-        if (Object.keys(pointHopper.current).length > 1) {
-            const routeGeoJSON = turf.featureCollection([
-                turf.feature(response.routes[0].geometry),
-            ]);
-            map.current.getSource("route").setData(routeGeoJSON);
-        }
+        // if (Object.keys(pointHopper.current).length > 1) {
+        //     const routeGeoJSON = turf.featureCollection([
+        //         turf.feature(response.routes[0].geometry),
+        //     ]);
+        //     map.current.getSource("route").setData(routeGeoJSON);
+        // }
     }
 
     // Here you'll specify all the parameters necessary for requesting a response from the Optimization API
@@ -160,10 +174,18 @@ export default function App() {
     }
 
     const addPlaceToList = (lng, lat) => {
-        function getPlaceName(response) {
-            const name = response.data.features[0].place_name;
+        async function getPlaceName(response_) {
+            const key = `key1-${key1++}`;
+
+            const name = response_.data.features[0].place_name;
             const id_ = id++;
-            listOfPlaces.current.push({ id: id_, longitude: lng, latitude: lat, name: name });
+            listOfPlaces.current.push({
+                id: id_,
+                longitude: lng,
+                latitude: lat,
+                name: name,
+                key: key,
+            });
 
             const marker = new mapboxgl.Marker({
                 draggable: true,
@@ -171,23 +193,17 @@ export default function App() {
                 .setLngLat([lng, lat])
                 .addTo(map.current);
 
+            listOfMarkers.current.push(marker);
+
             function onDragEnd() {
-                updateListOfPlaces(marker.getLngLat().lng, marker.getLngLat().lat, id_);
+                updateListOfPlaces(marker.getLngLat().lng, marker.getLngLat().lat, id_, key);
             }
 
             marker.on("dragend", onDragEnd);
-        }
 
-        getLocation(lng, lat, getPlaceName);
-    };
-
-    function updateListOfPlaces(lng, lat, id) {
-        async function getPlaceName(response_) {
-            const name = response_.data.features[0].place_name;
-
-            let foundIndex = listOfPlaces.current.findIndex((x) => x.id == id);
+            let foundIndex = listOfPlaces.current.findIndex((x) => x.id === id);
             listOfPlaces.current[foundIndex] = {
-                id: id,
+                ...listOfPlaces.current[foundIndex],
                 longitude: lng,
                 latitude: lat,
                 name: name,
@@ -196,13 +212,49 @@ export default function App() {
             const stuff = listOfPlaces.current.map((e) => [e.longitude, e.latitude]);
 
             const pt = turf.point([lng, lat], {
-                key: Math.random(),
+                // key: Math.random(),
+                key: key,
             });
             dropoffs.features.push(pt);
             pointHopper.current[pt.properties.key] = pt;
 
             // Make a request to the Optimization API
+            const query = await fetch(assembleQueryURL(stuff), { method: "GET" });
+            const response = await query.json();
 
+            if (Object.keys(pointHopper.current).length > 1) {
+                const routeGeoJSON = turf.featureCollection([
+                    turf.feature(response.routes[0].geometry),
+                ]);
+                map.current.getSource("route").setData(routeGeoJSON);
+            }
+        }
+
+        getLocation(lng, lat, getPlaceName);
+    };
+
+    function updateListOfPlaces(lng, lat, id, key) {
+        async function getPlaceName(response_) {
+            const name = response_.data.features[0].place_name;
+
+            let foundIndex = listOfPlaces.current.findIndex((x) => x.id === id);
+            listOfPlaces.current[foundIndex] = {
+                ...listOfPlaces.current[foundIndex],
+                longitude: lng,
+                latitude: lat,
+                name: name,
+                key: key,
+            };
+
+            const stuff = listOfPlaces.current.map((e) => [e.longitude, e.latitude]);
+
+            const pt = turf.point([lng, lat], {
+                key: key,
+            });
+            dropoffs.features.push(pt);
+            pointHopper.current[pt.properties.key] = pt;
+
+            // Make a request to the Optimization API
             const query = await fetch(assembleQueryURL(stuff), { method: "GET" });
             const response = await query.json();
 
@@ -218,6 +270,65 @@ export default function App() {
         forceRender((old) => !old);
     }
 
+    const deleteLocation = async (i, place) => {
+        listOfPlaces.current = listOfPlaces.current.filter((_, index) => index !== i);
+        listOfMarkers.current[i].remove();
+        listOfMarkers.current = listOfMarkers.current.filter((_, index) => index !== i);
+
+        console.log(pointHopper.current);
+        delete pointHopper.current[place.key];
+        console.log(place.key);
+        console.log(pointHopper.current);
+
+        if (listOfPlaces.current.length === 0) {
+            const geojson = {
+                name: "NewFeatureType",
+                type: "FeatureCollection",
+                features: [
+                    {
+                        type: "Feature",
+                        geometry: {
+                            type: "LineString",
+                            coordinates: [],
+                        },
+                        properties: null,
+                    },
+                ],
+            };
+
+            map.current.getSource("route").setData(geojson);
+        }
+
+        if (listOfPlaces.current.length === 1 || listOfPlaces.current.length === 0) {
+            map.current.setLayoutProperty("routeline-active", "visibility", "none");
+            return;
+        }
+
+        const stuff = listOfPlaces.current.map((e) => [e.longitude, e.latitude]);
+
+        // Make a request to the Optimization API
+        const query = await fetch(assembleQueryURL(stuff), { method: "GET" });
+        const response = await query.json();
+
+        console.log(response.routes[0].geometry);
+
+        if (Object.keys(pointHopper.current).length > 1) {
+            const routeGeoJSON = turf.featureCollection([
+                turf.feature(response.routes[0].geometry),
+            ]);
+
+            map.current.getSource("route").setData(routeGeoJSON);
+        }
+    };
+
+    const moveUp = () => {
+        console.log("up");
+    };
+
+    const moveDown = () => {
+        console.log("down");
+    };
+
     return (
         <div>
             <div className="sidebar">
@@ -225,10 +336,20 @@ export default function App() {
             </div>
             <div ref={mapContainer} className="map-container"></div>
             <ul>
-                {listOfPlaces.current.map((place) => {
-                    return <li key={place.id}>{place.name}</li>;
+                {listOfPlaces.current.map((place, i) => {
+                    return (
+                        <li key={place.id}>
+                            {place.name}
+                            <button onClick={() => deleteLocation(i, place)}>delete</button>
+                            {i !== 0 && <button onClick={() => moveUp(i)}>up</button>}
+                            {listOfPlaces.current.length - 1 !== i && (
+                                <button onClick={() => moveDown(i)}>down</button>
+                            )}
+                        </li>
+                    );
                 })}
             </ul>
+            <button onClick={() => console.log(pointHopper.current)}>log</button>
         </div>
     );
 }
