@@ -6,6 +6,7 @@ import { getLocation } from "./apis/Location";
 import Profiles from "./components/Profiles";
 import { ListOfPlaces } from "./components/ListOfPlaces";
 import DrawRoutes from "./apis/DrawRoutes";
+import Settings from "./components/Settings";
 import "mapbox-gl/dist/mapbox-gl.css";
 import "@mapbox/mapbox-gl-geocoder/dist/mapbox-gl-geocoder.css";
 import "./App.css";
@@ -16,6 +17,7 @@ let globalID = 0;
 const App = () => {
     const [profile, setProfile] = useState("driving");
     const [timeDistance, setTimeDistance] = useState({ time: 0, distance: 0 });
+    const colorWidth = useRef({ color: "#90caf9", width: 3 });
     const mapContainer = useRef(null);
     const map = useRef(null);
     const pointHopper = useRef({});
@@ -30,7 +32,7 @@ const App = () => {
         map.current = new mapboxgl.Map({
             container: mapContainer.current,
             style: "mapbox://styles/mapbox/streets-v11",
-            center: [19.1315, 47.4825],
+            center: [17.9093, 47.1028],
             zoom: 10,
         });
     });
@@ -72,14 +74,22 @@ const App = () => {
                         visibility: "visible",
                     },
                     paint: {
-                        "line-color": "#3887be",
-                        "line-width": ["interpolate", ["linear"], ["zoom"], 12, 3, 22, 12],
+                        "line-color": colorWidth.current.color,
+                        "line-width": [
+                            "interpolate",
+                            ["linear"],
+                            ["zoom"],
+                            12,
+                            colorWidth.current.width,
+                            22,
+                            12,
+                        ],
                     },
                 },
                 "waterway-label"
             );
         });
-    }, []);
+    });
 
     // Initialize the geocoder (Search bar)
     useEffect(() => {
@@ -126,8 +136,11 @@ const App = () => {
         getLocation(lng, lat, (response_) => {
             const name = response_.data.features[0].place_name;
             const id = globalID++;
+
+            // Create marker
             const marker = new mapboxgl.Marker({
                 draggable: true,
+                color: colorWidth.current.color,
             })
                 .setLngLat([lng, lat])
                 .addTo(map.current);
@@ -147,7 +160,7 @@ const App = () => {
                 getLocation(lng, lat, async (response_) => {
                     const name = response_.data.features[0].place_name;
 
-                    let foundIndex = listOfPlaces.current.findIndex((x) => x.id === id);
+                    const foundIndex = listOfPlaces.current.findIndex((x) => x.id === id);
                     listOfPlaces.current[foundIndex] = {
                         ...listOfPlaces.current[foundIndex],
                         longitude: lng,
@@ -164,7 +177,7 @@ const App = () => {
                 });
             });
 
-            let foundIndex = listOfPlaces.current.findIndex((x) => x.id === globalID);
+            const foundIndex = listOfPlaces.current.findIndex((x) => x.id === globalID);
             listOfPlaces.current[foundIndex] = {
                 ...listOfPlaces.current[foundIndex],
                 longitude: lng,
@@ -216,6 +229,33 @@ const App = () => {
         fetchRoutes();
     };
 
+    // When we change the colro or
+    // Line width in the options
+    // Update all the necesarry values
+    const changeColorWidth = (
+        color = colorWidth.current.color,
+        width = colorWidth.current.width
+    ) => {
+        colorWidth.current = { color: color, width: width };
+        map.current.setPaintProperty("routeline-active", "line-color", color);
+        map.current.setPaintProperty("routeline-active", "line-width", [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            12,
+            width,
+            22,
+            12,
+        ]);
+        listOfPlaces.current.forEach((place) => {
+            const markerElement = place.marker.getElement();
+            markerElement
+                .querySelectorAll('svg g[fill="' + place.marker._color + '"]')[0]
+                .setAttribute("fill", color);
+            place.marker._color = color;
+        });
+    };
+
     return (
         <>
             <div ref={mapContainer} className="map-container" />
@@ -230,6 +270,7 @@ const App = () => {
                 changeLocationOrder={changeLocationOrder}
                 deleteLocation={deleteLocation}
             />
+            <Settings changeColorWidth={changeColorWidth} />
         </>
     );
 };

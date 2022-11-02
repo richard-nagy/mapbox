@@ -7,7 +7,7 @@ import DirectionsBikeIcon from "@mui/icons-material/DirectionsBike";
 
 const Profiles = ({ profile, setProfile, fetchRoutes, timeDistance }) => {
     return (
-        <ControlPanel top={0}>
+        <ControlPanel>
             <Stack direction="row" spacing={2}>
                 <ToggleButtonGroup
                     value={profile}

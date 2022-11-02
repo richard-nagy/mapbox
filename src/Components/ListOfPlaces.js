@@ -33,7 +33,10 @@ const ListOfPlaces = ({ listOfPlaces, changeLocationOrder, deleteLocation }) => 
                             <Divider sx={{ margin: "5px 0 5px 0" }} />
                             <ListItem sx={{ padding: 0 }}>
                                 <ListItemText primary={place.name} />
-                                <IconButton color="error" onClick={() => deleteLocation(i, place)}>
+                                <IconButton
+                                    sx={{ margin: "0 5px 0 5px" }}
+                                    onClick={() => deleteLocation(i, place)}
+                                >
                                     <DeleteIcon />
                                 </IconButton>
                                 <ButtonGroup
