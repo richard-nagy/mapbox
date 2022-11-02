@@ -15,6 +15,7 @@ This project is a Google Maps alike application. You can mark waypoints, and pla
 
 -   Download project
 -   Open the project folder
+-   Add a env.local file to the root of the project, and use your Mapbox GL key, the file should look like this: REACT_APP_MAPBOX_TOKEN="your_mapbox_gl_key"
 -   Run npm install command to install packages
 -   Run npm start command to start the application
 
