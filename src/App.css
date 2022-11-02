@@ -1,0 +1,11 @@
+.mapboxgl-ctrl-geocoder {
+    right: 46px;
+    box-shadow: none;
+}
+
+.mapboxgl-ctrl-group,
+.mapboxgl-ctrl-group:not(:empty) {
+    width: 33px;
+    padding: 3px 0 3px 3px;
+    box-shadow: none;
+}

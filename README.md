@@ -1,70 +1,35 @@
-# Getting Started with Create React App
+# MapBox
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+This project is a Google Maps alike application. You can mark waypoints, and plan your route.
 
-## Available Scripts
+## What technologies have I used
 
-In the project directory, you can run:
+-   React
+-   Mapbox GL
+-   Bluerpint
+-   Axios
+-   Turf
+-   Geojson
 
-### `npm start`
+## How to install and start the application
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+-   Download project
+-   Open the project folder
+-   Add a env.local file to the root of the project, and use your Mapbox GL key, the file should look like this: REACT_APP_MAPBOX_TOKEN="your_mapbox_gl_key"
+-   Run npm install command to install packages
+-   Run npm start command to start the application
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+## Features and how to test them
 
-### `npm test`
-
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
-
-### `npm run build`
-
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
-
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
-
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
-
-### `npm run eject`
-
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
-
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
-
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
-
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+-   Change location and zoom level by clicking and dragging on the map, and scrolling with the mouse scroller
+-   Change location and zoom level by clicking on the controller buttons on the right side of the map
+-   Click on the map to add a marker
+-   Type and select a location into the search box in the top right corner
+-   Change the location of the markers by clicking and dragging them
+-   Change transportation way between driving, walking, and bicycling by choosing and clicking on one of the icons in the top left corner
+-   Review distance and travel time in the top left corner
+-   Review the list of locations on the left side
+-   Remove the location from the list by clicking on the delete icon in the list
+-   Change the order of locations by clicking on one of the arrow icons in the list
+-   Change the color of markers and route by clicking on the settings icon in the top right corner, and selecting a color
+-   Change the width of route by clicking on the settings icon in the top right corner, and selecting a color
