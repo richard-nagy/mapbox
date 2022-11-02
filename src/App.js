@@ -45,6 +45,9 @@ const App = () => {
         }
 
         map.current.on("load", () => {
+            // Add controllers to the map
+            map.current.addControl(new mapboxgl.NavigationControl());
+
             map.current.addLayer({
                 id: "dropoffs-symbol",
                 type: "symbol",
