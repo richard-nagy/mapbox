@@ -24,7 +24,7 @@ const DrawRoutes = async (listOfPlaces, profile, pointHopper, map, setTimeDistan
             })
             .catch((error) => {
                 console.log(error);
-                alert("An error occured. You might need refresh the page.");
+                alert("An error occured. You might need to refresh the page.");
             });
     } else {
         setTimeDistance({
