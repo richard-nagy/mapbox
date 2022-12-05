@@ -6,7 +6,7 @@ This project is a Google Maps alike application. You can mark waypoints, and pla
 
 -   React
 -   Mapbox GL
--   Bluerpint
+-   Material UI
 -   Axios
 -   Turf
 -   Geojson
